@@ -1,3 +1,4 @@
+import { GetUserIdsByUuidsOrVlessUuidsHandler } from './get-user-ids-by-uuids-or-vless-uuids';
 import { GetUsersWithResolvedInboundsHandler } from './get-users-with-resolved-inbounds';
 import { GetUserWithResolvedInboundsHandler } from './get-user-with-resolved-inbounds';
 import { GetPreparedConfigWithUsersHandler } from './get-prepared-config-with-users';
@@ -24,4 +25,5 @@ export const QUERIES = [
     GetUserIdsByUserUuidsHandler,
     GetUserIdByUuidHandler,
     GetUsersRecapHandler,
+    GetUserIdsByUuidsOrVlessUuidsHandler,
 ];

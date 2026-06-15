@@ -3,8 +3,8 @@ import { Job } from 'bullmq';
 import { t } from 'try';
 
 import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ConfigService } from '@nestjs/config';
-import { CommandBus } from '@nestjs/cqrs';
 import { Logger } from '@nestjs/common';
 
 import { GetUsersStatsCommand } from '@remnawave/node-contract';
@@ -18,6 +18,8 @@ import {
     INTERNAL_CACHE_KEYS,
     INTERNAL_CACHE_KEYS_TTL,
 } from '@libs/contracts/constants';
+
+import { GetUserIdsByUuidsOrVlessUuidsQuery } from '@modules/users/queries/get-user-ids-by-uuids-or-vless-uuids';
 
 import { PushFromRedisQueueService } from '@queue/push-from-redis/push-from-redis.service';
 import { UsersQueuesService } from '@queue/_users';
@@ -35,6 +37,7 @@ export class RecordUserUsageQueueProcessor extends WorkerHost {
 
     constructor(
         private readonly commandBus: CommandBus,
+        private readonly queryBus: QueryBus,
         private readonly axios: AxiosService,
         private readonly configService: ConfigService,
         private readonly usersQueuesService: UsersQueuesService,
@@ -113,6 +116,26 @@ export class RecordUserUsageQueueProcessor extends WorkerHost {
                 return;
             }
 
+            const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            const potentialUuids = response.response.users
+                .map((u) => u.username)
+                .filter((username) => UUID_REGEX.test(username));
+
+            const uuidToIdMap = new Map<string, string>();
+            if (potentialUuids.length > 0) {
+                const queryResult = await this.queryBus.execute(
+                    new GetUserIdsByUuidsOrVlessUuidsQuery(potentialUuids),
+                );
+
+                if (queryResult.isOk) {
+                    queryResult.response.forEach((user) => {
+                        const tIdStr = user.tId.toString();
+                        uuidToIdMap.set(user.uuid.toLowerCase(), tIdStr);
+                        uuidToIdMap.set(user.vlessUuid.toLowerCase(), tIdStr);
+                    });
+                }
+            }
+
             const userUsageList: { u: string; b: string; n: string }[] = new Array(
                 response.response.users.length,
             );
@@ -123,10 +146,16 @@ export class RecordUserUsageQueueProcessor extends WorkerHost {
             const pipeline = this.rawCacheService.createPipeline();
 
             response.response.users.forEach((user) => {
-                const { ok } = t(() => BigInt(user.username));
+                let resolvedUsername = user.username;
+                const { ok } = t(() => BigInt(resolvedUsername));
 
                 if (!ok) {
-                    return;
+                    const mapped = uuidToIdMap.get(resolvedUsername.toLowerCase());
+                    if (mapped) {
+                        resolvedUsername = mapped;
+                    } else {
+                        return;
+                    }
                 }
 
                 const totalBytes = user.downlink + user.uplink;
@@ -135,10 +164,10 @@ export class RecordUserUsageQueueProcessor extends WorkerHost {
                     return;
                 }
 
-                pipeline.hincrby(nodeRedisKey, user.username, totalBytes);
+                pipeline.hincrby(nodeRedisKey, resolvedUsername, totalBytes);
 
                 userUsageList[userUsageIndex++] = {
-                    u: user.username,
+                    u: resolvedUsername,
                     b: multiplyConsumption(consumptionMultiplier, totalBytes).toString(),
                     n: nodeUuid,
                 };

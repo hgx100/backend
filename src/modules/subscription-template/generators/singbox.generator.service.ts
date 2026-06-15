@@ -129,7 +129,7 @@ export class SingBoxGeneratorService {
 
             case 'hysteria':
                 config.password = (host.transportOptions as any).auth;
-                
+
                 if (host.streamOverrides.finalMask) {
                     const finalMask = host.streamOverrides.finalMask as any;
                     if (finalMask.quicParams) {
@@ -144,7 +144,9 @@ export class SingBoxGeneratorService {
                     }
 
                     if (Array.isArray(finalMask.udp)) {
-                        const obfsPassword = finalMask.udp.find((m: any) => m?.type === 'salamander')?.settings?.password;
+                        const obfsPassword = finalMask.udp.find(
+                            (m: any) => m?.type === 'salamander',
+                        )?.settings?.password;
                         if (obfsPassword) {
                             config.obfs = {
                                 type: 'salamander',

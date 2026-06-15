@@ -1034,6 +1034,32 @@ export class UsersRepository {
             .execute();
     }
 
+    public async getUserIdsByUuidsOrVlessUuids(uuids: string[]): Promise<
+        {
+            tId: bigint;
+            uuid: string;
+            vlessUuid: string;
+        }[]
+    > {
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const validUuids = Array.from(new Set(uuids.filter((u) => UUID_REGEX.test(u))));
+
+        if (validUuids.length === 0) {
+            return [];
+        }
+
+        return await this.qb.kysely
+            .selectFrom('users')
+            .select(['tId', 'uuid', 'vlessUuid'])
+            .where((eb) =>
+                eb.or([
+                    eb('uuid', 'in', validUuids.map(getKyselyUuid)),
+                    eb('vlessUuid', 'in', validUuids.map(getKyselyUuid)),
+                ]),
+            )
+            .execute();
+    }
+
     public async addUserToInternalSquads(
         userId: bigint,
         internalSquadUuids: string[],
