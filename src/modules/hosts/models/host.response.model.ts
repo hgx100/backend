@@ -33,6 +33,7 @@ export class HostResponseModel {
     public mihomoX25519: boolean;
     public mihomoIpVersion: TMihomoIpVersion | null;
     public tags: string[];
+    public tag: string | null;
     public isHidden: boolean;
 
     public overrideSniFromAddress: boolean;
@@ -78,6 +79,7 @@ export class HostResponseModel {
         this.mihomoIpVersion = data.mihomoIpVersion;
 
         this.tags = data.tags;
+        this.tag = data.tags[0] ?? null;
         this.isHidden = data.isHidden;
 
         this.overrideSniFromAddress = data.overrideSniFromAddress;

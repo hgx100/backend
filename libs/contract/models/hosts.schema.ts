@@ -27,6 +27,7 @@ export const HostsSchema = z.object({
     }),
 
     serverDescription: z.string().max(30).nullable(),
+    tag: z.string().nullable().optional(),
     tags: z.array(z.string()).default([]),
     isHidden: z.boolean().default(false),
     overrideSniFromAddress: z.boolean().default(false),
